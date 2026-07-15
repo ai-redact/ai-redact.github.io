@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Redact – Intelligente Dokumentenschwärzung</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #0a0c10;
+    --paper: #f5f3ee;
+    --accent: #1a4fff;
+    --accent2: #ff3c2e;
+    --muted: #6b6e7a;
+    --card-bg: #ffffff;
+    --border: rgba(10,12,16,0.1);
+    --redact: #0a0c10;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    overflow-x: hidden;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 5%;
+    background: rgba(245,243,238,0.85);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800; font-size: 1.35rem; letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+  .logo span {
+    display: inline-block; background: var(--redact);
+    color: transparent; border-radius: 3px; padding: 0 6px;
+    position: relative; top: 1px;
+    user-select: none;
+  }
+  .logo span::after {
+    content: 'AI'; color: var(--paper);
+    position: absolute; left: 6px;
+  }
+  nav ul { list-style: none; display: flex; gap: 2.2rem; }
+  nav ul li a {
+    font-size: 0.88rem; font-weight: 500; color: var(--muted);
+    text-decoration: none; transition: color .2s;
+  }
+  nav ul li a:hover { color: var(--ink); }
+  .nav-cta {
+    background: var(--ink); color: var(--paper) !important;
+    padding: .5rem 1.2rem; border-radius: 6px;
+    font-weight: 500 !important; transition: opacity .2s !important;
+  }
+  .nav-cta:hover { opacity: .8; color: var(--paper) !important; }
+
+  /* HERO */
+  .hero {
+    min-height: 85vh;
+    display: grid; grid-template-columns: 1fr 1fr;
+    align-items: center; gap: 4rem;
+    padding: 8rem 12% 5rem;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 80% 50%, rgba(26,79,255,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: rgba(26,79,255,0.08); border: 1px solid rgba(26,79,255,0.2);
+    color: var(--accent); border-radius: 100px;
+    padding: .3rem .9rem; font-size: .78rem; font-weight: 500;
+    margin-bottom: 1.6rem;
+  }
+  .hero-badge::before { content: '●'; font-size: .5rem; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(2.4rem, 4.5vw, 3.8rem);
+    font-weight: 800; line-height: 1.08;
+    letter-spacing: -0.04em; margin-bottom: 1.4rem;
+  }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent) 0%, #5b8fff 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .redacted-word {
+    display: inline-block;
+    background: var(--redact);
+    color: var(--redact);
+    border-radius: 3px;
+    padding: 0 4px;
+    position: relative;
+    user-select: none;
+  }
+
+  .hero-sub {
+    font-size: 1.05rem; line-height: 1.7; color: var(--muted);
+    max-width: 480px; margin-bottom: 2.2rem;
+  }
+  .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    padding: .85rem 2rem; border-radius: 8px;
+    font-family: 'Inter', sans-serif; font-size: .95rem; font-weight: 500;
+    border: none; cursor: pointer; text-decoration: none;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 20px rgba(26,79,255,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(26,79,255,0.4); }
+  .btn-ghost {
+    background: transparent; color: var(--ink);
+    padding: .85rem 2rem; border-radius: 8px;
+    font-family: 'Inter', sans-serif; font-size: .95rem; font-weight: 500;
+    border: 1.5px solid var(--border); cursor: pointer; text-decoration: none;
+    transition: background .15s;
+  }
+  .btn-ghost:hover { background: rgba(10,12,16,0.05); }
+
+  /* HERO VISUAL */
+  .hero-visual {
+    position: relative; display: flex; justify-content: center; align-items: center;
+  }
+  .doc-mockup {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.05);
+    animation: floatDoc 4s ease-in-out infinite;
+  }
+  @keyframes floatDoc { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  .doc-header {
+    display: flex; align-items: center; gap: .6rem;
+    margin-bottom: 1.4rem; padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .doc-icon { font-size: 1.4rem; }
+  .doc-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: .9rem; }
+  .doc-meta { font-size: .75rem; color: var(--muted); }
+  .doc-line {
+    height: 11px; background: rgba(10,12,16,0.07);
+    border-radius: 4px; margin-bottom: .6rem;
+  }
+  .doc-line.short { width: 55%; }
+  .doc-line.med { width: 80%; }
+  .doc-line.full { width: 100%; }
+  .doc-line.redacted {
+    background: var(--redact); width: 60%;
+    position: relative; overflow: hidden;
+  }
+  .doc-line.redacted::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+  .doc-line.redacted2 { background: var(--redact); width: 45%; }
+  .doc-line.redacted3 { background: var(--redact); width: 72%; }
+  .doc-badge {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: rgba(26,79,255,0.1); color: var(--accent);
+    border-radius: 6px; padding: .4rem .8rem; font-size: .78rem; font-weight: 500;
+    margin-top: 1rem;
+  }
+
+  .floating-tag {
+    position: absolute;
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: .6rem 1rem;
+    font-size: .8rem; font-weight: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    white-space: nowrap;
+  }
+  .tag1 { top: 8%; right: -8%; animation: floatTag1 3s ease-in-out infinite; }
+  .tag2 { bottom: 15%; left: -12%; animation: floatTag2 3.5s ease-in-out infinite; }
+  .tag1 span, .tag2 span { color: var(--accent); }
+  @keyframes floatTag1 { 0%,100%{transform:translateY(0) rotate(2deg)} 50%{transform:translateY(-6px) rotate(2deg)} }
+  @keyframes floatTag2 { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(6px) rotate(-2deg)} }
+
+  /* LOGOS / TRUST */
+  .trust-bar {
+    text-align: center; padding: 3rem 5%;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .trust-bar p { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 1.5rem; }
+  .trust-logos { display: flex; justify-content: center; align-items: center; gap: 3rem; flex-wrap: wrap; }
+  .trust-logos span {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 1.1rem;
+    color: rgba(10,12,16,0.2); letter-spacing: -.02em;
+  }
+
+  /* SECTIONS */
+  section { padding: 6rem 5%; }
+
+  .section-tag {
+    font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .15em;
+    color: var(--accent); margin-bottom: .8rem;
+  }
+  h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: clamp(1.8rem, 3vw, 2.8rem);
+    letter-spacing: -0.03em; line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+  .section-sub { font-size: 1rem; color: var(--muted); max-width: 540px; line-height: 1.65; margin-bottom: 3rem; }
+
+  /* FEATURES */
+  .features-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+  .feature-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.08); }
+  .feature-card:first-child {
+    grid-column: 1 / 3;
+  }
+  .feat-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: rgba(26,79,255,0.1); display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-bottom: 1.2rem;
+  }
+  .feat-icon.red { background: rgba(255,60,46,0.1); }
+  .feat-icon.green { background: rgba(0,180,100,0.1); }
+  h3 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 1.1rem;
+    margin-bottom: .6rem; letter-spacing: -.02em;
+  }
+  .feature-card p { font-size: .9rem; color: var(--muted); line-height: 1.6; }
+
+  .feat-chips { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1rem; }
+  .chip {
+    font-size: .75rem; padding: .25rem .7rem; border-radius: 100px;
+    border: 1px solid var(--border); color: var(--muted); font-weight: 500;
+  }
+
+  /* HOW IT WORKS */
+  .how { background: var(--ink); color: var(--paper); border-radius: 24px; margin: 0 5%; }
+  .how h2, .how .section-tag { color: var(--paper); }
+  .how .section-tag { color: rgba(245,243,238,0.5); }
+  .how .section-sub { color: rgba(245,243,238,0.6); }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: 3rem; }
+  .step {
+    padding: 2.5rem 2rem;
+    border-right: 1px solid rgba(245,243,238,0.1);
+    position: relative;
+  }
+  .step:last-child { border-right: none; }
+  .step-num {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 3.5rem; color: rgba(245,243,238,0.9);
+    line-height: 1; margin-bottom: 1rem;
+  }
+  .step h3 { color: var(--paper); margin-bottom: .6rem; }
+  .step p { font-size: .9rem; color: rgba(245,243,238,0.55); line-height: 1.65; }
+  .step-icon { font-size: 1.6rem; margin-bottom: .8rem; }
+
+  /* TECH */
+  .tech-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+  .tech-item {
+    display: flex; gap: 1.2rem; align-items: flex-start;
+    padding: 1.8rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+  }
+  .tech-bullet {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0; margin-top: 5px;
+  }
+  .tech-bullet.r { background: var(--accent2); }
+  .tech-item h4 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: .95rem; margin-bottom: .3rem; }
+  .tech-item p { font-size: .875rem; color: var(--muted); line-height: 1.6; }
+
+  /* DEMO FORM */
+  .demo-section {
+    background: linear-gradient(135deg, var(--accent) 0%, #3d65ff 100%);
+    color: #fff; border-radius: 24px; margin: 0 5%;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
+    padding: 4rem;
+  }
+  .demo-left h2 { color: #fff; }
+  .demo-left .section-tag { color: rgba(255,255,255,0.6); }
+  .demo-left .section-sub { color: rgba(255,255,255,0.75); margin-bottom: 2rem; }
+  .demo-benefits { list-style: none; display: flex; flex-direction: column; gap: .8rem; }
+  .demo-benefits li { display: flex; align-items: center; gap: .7rem; font-size: .9rem; color: rgba(255,255,255,0.85); }
+  .demo-benefits li::before { content: '✓'; font-weight: 700; color: #fff; font-size: 1rem; }
+
+  .demo-form {
+    background: #fff; border-radius: 16px; padding: 2.5rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .demo-form h3 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 1.3rem;
+    color: var(--ink); margin-bottom: 1.6rem; letter-spacing: -.02em;
+  }
+  .form-group { margin-bottom: 1.2rem; }
+  .form-group label { display: block; font-size: .8rem; font-weight: 500; color: var(--muted); margin-bottom: .4rem; }
+  .form-group input {
+    width: 100%; padding: .75rem 1rem;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: 'Inter', sans-serif; font-size: .95rem; color: var(--ink);
+    background: var(--paper);
+    transition: border-color .2s, box-shadow .2s;
+    outline: none;
+  }
+  .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,79,255,0.12); }
+  .form-group input::placeholder { color: rgba(10,12,16,0.3); }
+  .form-submit {
+    width: 100%; background: var(--ink); color: #fff;
+    padding: .9rem; border-radius: 8px; border: none;
+    font-family: 'Inter', sans-serif; font-size: 1rem; font-weight: 500;
+    cursor: pointer; transition: background .2s, transform .15s;
+    margin-top: .5rem;
+  }
+  .form-submit:hover { background: #1a1f2e; transform: translateY(-1px); }
+  .form-note { font-size: .75rem; color: var(--muted); text-align: center; margin-top: .8rem; }
+
+  /* SUCCESS STATE */
+  .form-success {
+    display: none; text-align: center; padding: 2rem 1rem;
+  }
+  .form-success .success-icon { font-size: 3rem; margin-bottom: 1rem; }
+  .form-success h4 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.2rem; color: var(--ink); margin-bottom: .5rem; }
+  .form-success p { font-size: .9rem; color: var(--muted); }
+
+  /* FOOTER */
+  footer {
+    text-align: center; padding: 3rem 5%;
+    border-top: 1px solid var(--border); margin-top: 5rem;
+    font-size: .85rem; color: var(--muted);
+  }
+  footer .footer-logo {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 1.2rem;
+    color: var(--ink); margin-bottom: .8rem;
+  }
+
+  /* IRREVERSIBILITY BANNER */
+  .irreversible-banner {
+    background: #0a0c10;
+    color: #f5f3ee;
+    padding: 2.2rem 5%;
+    display: flex; align-items: center; justify-content: center; gap: 3rem;
+    flex-wrap: wrap;
+  }
+  .irrev-item {
+    display: flex; align-items: center; gap: .9rem;
+    font-size: .9rem; font-weight: 500;
+  }
+  .irrev-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: rgba(255,60,46,0.15); border: 1px solid rgba(255,60,46,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0;
+  }
+  .irrev-item strong { color: #fff; display: block; font-size: .95rem; }
+  .irrev-item span { color: rgba(245,243,238,0.5); font-size: .8rem; font-weight: 400; }
+  .irrev-divider { width: 1px; height: 36px; background: rgba(245,243,238,0.1); }
+
+  /* UI SCREENSHOT SECTION */
+  .ui-section {
+    padding: 6rem 5%;
+    background: var(--paper);
+  }
+  .ui-section-inner {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 5rem; align-items: center;
+  }
+  .ui-text .section-tag { margin-bottom: .8rem; }
+  .ui-text h2 { margin-bottom: 1rem; }
+  .ui-text p { font-size: .95rem; color: var(--muted); line-height: 1.7; margin-bottom: 1.5rem; }
+
+  .hitl-points { display: flex; flex-direction: column; gap: 1.2rem; margin-bottom: 2rem; }
+  .hitl-point {
+    display: flex; gap: 1rem; align-items: flex-start;
+    padding: 1.1rem 1.2rem;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+    transition: box-shadow .2s;
+  }
+  .hitl-point:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
+  .hitl-point-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: rgba(26,79,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  .hitl-point-icon.orange { background: rgba(255,140,0,0.12); }
+  .hitl-point-icon.red { background: rgba(255,60,46,0.1); }
+  .hitl-point h4 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: .92rem; margin-bottom: .2rem; }
+  .hitl-point p { font-size: .83rem; color: var(--muted); line-height: 1.55; margin: 0; }
+
+  /* UI SCREENSHOT FRAME */
+  .ui-screenshot-wrap {
+    position: relative;
+  }
+  .ui-screenshot-frame {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08);
+    border: 1px solid var(--border);
+    background: #fff;
+  }
+  .ui-screenshot-frame img {
+    width: 100%; display: block;
+  }
+  .ui-caption {
+    position: absolute; bottom: -1.5rem; left: 50%; transform: translateX(-50%);
+    white-space: nowrap;
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 100px; padding: .4rem 1.1rem;
+    font-size: .78rem; font-weight: 500; color: var(--muted);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .ui-caption span { color: var(--accent); font-weight: 600; }
+
+  /* IRREV HIGHLIGHT BOX */
+  .irrev-highlight {
+    background: linear-gradient(135deg, rgba(255,60,46,0.06) 0%, rgba(255,60,46,0.02) 100%);
+    border: 1.5px solid rgba(255,60,46,0.2);
+    border-radius: 12px; padding: 1.4rem 1.6rem;
+    display: flex; gap: 1rem; align-items: flex-start;
+    margin-top: 1.5rem;
+  }
+  .irrev-highlight-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
+  .irrev-highlight h4 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: .95rem; color: #c0281e; margin-bottom: .3rem; }
+  .irrev-highlight p { font-size: .85rem; color: var(--muted); line-height: 1.6; margin: 0; }
+
+  /* PARALLAX */
+  .hero { position: relative; overflow: hidden; }
+  .parallax-bg {
+    position: absolute; inset: -30% 0;
+    background:
+      radial-gradient(ellipse 55% 60% at 75% 55%, rgba(26,79,255,0.1) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 40% at 20% 30%, rgba(26,79,255,0.05) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+    will-change: transform;
+  }
+  .hero-content, .hero-visual { position: relative; z-index: 1; }
+
+  /* RESPONSIVE */
+  /* HAMBURGER */
+  .hamburger {
+    display: none; flex-direction: column; gap: 5px;
+    background: none; border: none; cursor: pointer; padding: 4px;
+  }
+  .hamburger span {
+    display: block; width: 24px; height: 2px;
+    background: var(--ink); border-radius: 2px;
+    transition: transform .3s, opacity .3s;
+  }
+  .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .hamburger.open span:nth-child(2) { opacity: 0; }
+  .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* MOBILE NAV DRAWER */
+  .mobile-nav {
+    display: none; position: fixed; top: 64px; left: 0; right: 0;
+    background: rgba(245,243,238,0.97); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border); z-index: 99;
+    flex-direction: column; padding: 1.2rem 5%;
+    gap: .2rem;
+  }
+  .mobile-nav.open { display: flex; }
+  .mobile-nav a {
+    font-size: 1.05rem; font-weight: 500; color: var(--ink);
+    text-decoration: none; padding: .8rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .mobile-nav a:last-child { border-bottom: none; }
+  .mobile-nav .mobile-cta {
+    margin-top: .8rem; background: var(--accent); color: #fff !important;
+    text-align: center; padding: .9rem; border-radius: 8px;
+    font-weight: 600 !important; border-bottom: none !important;
+  }
+
+  @media (max-width: 900px) {
+    /* NAV */
+    nav ul { display: none; }
+    nav { padding: 1rem 5%; }
+    .hamburger { display: flex; }
+
+    /* HERO – first impression after QR scan */
+    .hero {
+      grid-template-columns: 1fr;
+      padding: 5.5rem 5% 2.5rem;
+      gap: 1.5rem;
+      min-height: auto;
+    }
+    .hero-visual { display: none; }
+    .parallax-bg { display: none; } /* no parallax on mobile for speed */
+    h1 { font-size: 2rem; line-height: 1.12; }
+    .hero-badge { font-size: .72rem; }
+    .hero-sub { font-size: .92rem; margin-bottom: 1.6rem; }
+    .hero-actions { flex-direction: column; gap: .8rem; }
+    .btn-primary, .btn-ghost {
+      text-align: center; padding: 1rem;
+      font-size: 1rem; border-radius: 10px;
+    }
+
+    /* STICKY CTA on mobile */
+    .mobile-sticky-cta {
+      display: flex !important;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+      background: var(--ink); padding: 1rem 5%;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+    }
+    .mobile-sticky-cta a {
+      flex: 1; text-align: center; background: var(--accent);
+      color: #fff; font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700; font-size: 1rem; padding: .9rem;
+      border-radius: 10px; text-decoration: none;
+    }
+
+    /* add bottom padding so content isn't hidden behind sticky CTA */
+    footer { padding-bottom: 5rem; }
+
+    /* TRUST */
+    .trust-bar { padding: 2rem 5%; }
+    .trust-logos { gap: 1rem; }
+    .trust-logos span { font-size: .85rem; }
+
+    /* BANNER */
+    .irreversible-banner {
+      gap: 1rem; flex-direction: column;
+      align-items: flex-start; padding: 1.5rem 5%;
+    }
+    .irrev-divider { display: none; }
+    .irrev-item { font-size: .85rem; }
+
+    /* SECTIONS */
+    section { padding: 3rem 5%; }
+
+    /* FEATURES */
+    .features-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .feature-card:first-child { grid-column: 1; grid-template-columns: 1fr; }
+    .feature-card { padding: 1.4rem; }
+    .feat-chips { gap: .4rem; }
+    .chip { font-size: .7rem; }
+
+    /* HOW */
+    .how { border-radius: 16px; margin: 0 3%; }
+    .how > div { padding: 2.5rem 1.4rem !important; }
+    .steps { grid-template-columns: 1fr; gap: 0; }
+    .step { border-right: none; border-bottom: 1px solid rgba(245,243,238,0.1); padding: 1.5rem 1rem; }
+    .step:last-child { border-bottom: none; }
+    .step-num { font-size: 2.2rem; }
+    .step h3 { font-size: 1rem; }
+
+    /* TECH */
+    .tech-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .tech-item { padding: 1.2rem; }
+
+    /* UI SECTION */
+    .ui-section { padding: 3rem 5%; }
+    .ui-section-inner { grid-template-columns: 1fr; gap: 2rem; }
+    .ui-screenshot-frame > div { height: auto !important; flex-direction: column !important; }
+    .ui-screenshot-frame > div > div:first-child {
+      border-right: none !important; border-bottom: 1px solid #e8e8e8;
+      max-height: 240px; overflow: auto;
+      padding: 16px !important;
+      font-size: 11px !important;
+    }
+    .ui-screenshot-frame > div > div:last-child { width: 100% !important; }
+    .ui-caption { white-space: normal; text-align: center; width: 90%; bottom: -2rem; }
+    .hitl-point { padding: .9rem 1rem; }
+    .irrev-highlight { padding: 1rem 1.1rem; }
+
+    /* DEMO FORM */
+    .demo-section {
+      grid-template-columns: 1fr;
+      padding: 2rem 1.2rem;
+      border-radius: 16px;
+      margin: 0 3%;
+      gap: 1.8rem;
+    }
+    .demo-form { padding: 1.6rem 1.2rem; }
+    .demo-form h3 { font-size: 1.1rem; }
+    .form-group input { padding: .85rem 1rem; font-size: 1rem; }
+    .form-submit { padding: 1rem; font-size: 1rem; }
+
+    /* FAQ */
+    .faq-question { font-size: .92rem; padding: 1.1rem 1.1rem; }
+    .faq-answer { padding: 0 1.1rem; }
+    .faq-item.open .faq-answer { padding: 0 1.1rem 1.1rem; }
+
+    /* FOOTER */
+    footer { padding: 2rem 5% 6rem; }
+
+    /* SCROLL TO TOP – above sticky CTA */
+    #scrollTop { bottom: 5.5rem; }
+
+    /* disable heavy animations for speed */
+    .doc-mockup { animation: none !important; }
+    .floating-tag { animation: none !important; }
+    * { transition-duration: .15s !important; }
+  }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 1.75rem; }
+    h2 { font-size: 1.5rem; }
+    .section-sub { font-size: .88rem; }
+    .hero-badge { display: none; } /* clean hero on very small screens */
+    nav { padding: .9rem 4%; }
+  }
+  .mobile-sticky-cta { display: none; } /* hidden on desktop, shown via media query */
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" style="text-decoration:none;"><div class="logo"><span></span>AI Redact</div></a>
+  <ul>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">So funktioniert's</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#demo" class="nav-cta">Demo anfragen</a></li>
+  </ul>
+  <button class="hamburger" id="hamburger" aria-label="Menü öffnen" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="mobile-nav" id="mobileNav">
+  <a href="#features" onclick="closeMenu()">Features</a>
+  <a href="#how" onclick="closeMenu()">So funktioniert's</a>
+  <a href="#faq" onclick="closeMenu()">FAQ</a>
+  <a href="#demo" class="mobile-cta" onclick="closeMenu()">Kostenlose Demo anfragen →</a>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="heroSection">
+  <div class="parallax-bg" id="parallaxBg"></div>
+  <div class="hero-content">
+    <div class="hero-badge">100 % lokal – Ihre Daten bleiben bei Ihnen</div>
+    <h1>
+      Personenbezogene Daten<br>
+      <em>automatisch</em><br>
+      <span class="redacted-word" style="display:block; width:9ch; margin-bottom: 0.2em;">&nbsp;</span>schwärzen.
+    </h1>
+    <p class="hero-sub">
+      Namen, Adressen, Aktenzeichen – AI Redact findet alle sensiblen Stellen in Ihren Dokumenten und schwärzt sie auf Knopfdruck. Sicher, schnell und ohne technisches Vorwissen.
+    </p>
+    <div class="hero-actions">
+      <a href="#demo" class="btn-primary">Kostenlose Demo anfragen →</a>
+      <a href="#how" class="btn-ghost">So funktioniert's</a>
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <div class="doc-mockup">
+      <div class="doc-header">
+        <div class="doc-icon">📄</div>
+        <div>
+          <div class="doc-title">Personalakte_Müller.pdf</div>
+          <div class="doc-meta">Verarbeitet in 1.2s · 4 Fundstellen</div>
+        </div>
+      </div>
+      <div class="doc-line full"></div>
+      <div class="doc-line med"></div>
+      <div class="doc-line redacted"></div>
+      <div class="doc-line short"></div>
+      <div class="doc-line full"></div>
+      <div class="doc-line redacted2"></div>
+      <div class="doc-line med"></div>
+      <div class="doc-line full"></div>
+      <div class="doc-line redacted3"></div>
+      <div class="doc-line short"></div>
+      <div class="doc-badge">✓ 4 Datenpunkte geschwärzt</div>
+    </div>
+    <div class="floating-tag tag1">⚡ <span>1.2s</span> Verarbeitungszeit</div>
+    <div class="floating-tag tag2">🔒 <span>Lokal</span> verarbeitet</div>
+  </div>
+</section>
+
+
+
+<!-- LOCAL USP BANNER -->
+<div class="local-usp">
+  <div class="local-usp-inner">
+    <div class="local-usp-label">🔒 Ihr entscheidender Vorteil</div>
+    <div class="local-usp-title">Ihre Daten verlassen niemals Ihr Haus.</div>
+    <div class="local-usp-sub">AI Redact läuft vollständig lokal – kein Cloud-Zwang, keine Datenweitergabe an Dritte.</div>
+    <div class="local-usp-options">
+      <div class="local-usp-option">
+        <div class="local-usp-option-icon">💻</div>
+        <div>
+          <strong>Auf Ihrem eigenen Gerät oder Server</strong>
+          <span>Direkt bei Ihnen installiert – Ihre Daten verlassen zu keinem Zeitpunkt Ihr Haus.</span>
+        </div>
+      </div>
+      <div class="local-usp-divider"></div>
+      <div class="local-usp-option">
+        <div class="local-usp-option-icon">📦</div>
+        <div>
+          <strong>Auf unserem Nanocomputer</strong>
+          <span>Wir liefern einen vorkonfigurierten Minicomputer – einstecken, fertig. Kein IT-Aufwand.</span>
+        </div>
+      </div>
+      <div class="local-usp-divider"></div>
+      <div class="local-usp-option">
+        <div class="local-usp-option-icon">🖥️</div>
+        <div>
+          <strong>Wir hosten für Sie</strong>
+          <span>Kein eigener Server nötig – wir stellen die Infrastruktur bereit.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .local-usp {
+    background: linear-gradient(135deg, #0a0c10 0%, #1a2240 100%);
+    padding: 3.5rem 5%;
+  }
+  .local-usp-inner {
+    max-width: 900px; margin: 0 auto; text-align: center;
+  }
+  .local-usp-label {
+    display: inline-block;
+    background: rgba(26,79,255,0.25); border: 1px solid rgba(26,79,255,0.4);
+    color: #7fa3ff; border-radius: 100px;
+    padding: .3rem 1rem; font-size: .78rem; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: 1.2rem;
+  }
+  .local-usp-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800; font-size: clamp(1.6rem, 3vw, 2.4rem);
+    color: #fff; letter-spacing: -.03em; line-height: 1.15;
+    margin-bottom: .8rem;
+  }
+  .local-usp-sub {
+    font-size: 1rem; color: rgba(255,255,255,0.55);
+    line-height: 1.65; margin-bottom: 2.5rem;
+  }
+  .local-usp-options {
+    display: flex; align-items: stretch; gap: 0;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; overflow: hidden;
+    text-align: left;
+  }
+  .local-usp-option {
+    flex: 1; padding: 1.8rem 2rem;
+    display: flex; gap: 1.2rem; align-items: flex-start;
+  }
+  .local-usp-option-icon {
+    font-size: 1.8rem; flex-shrink: 0; margin-top: 2px;
+  }
+  .local-usp-option strong {
+    display: block; color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700; font-size: 1rem; margin-bottom: .4rem;
+  }
+  .local-usp-option span {
+    font-size: .88rem; color: rgba(255,255,255,0.5); line-height: 1.6;
+  }
+  .local-usp-divider {
+    width: 1px; background: rgba(255,255,255,0.1); flex-shrink: 0;
+  }
+
+  @media (max-width: 700px) {
+    .local-usp { padding: 2.5rem 5%; }
+    .local-usp-options { flex-direction: column; }
+    .local-usp-divider { width: auto; height: 1px; }
+    .local-usp-option { padding: 1.4rem 1.2rem; }
+  }
+</style>
+
+<!-- IRREVERSIBILITY BANNER -->
+<div class="irreversible-banner">
+  <div class="irrev-item">
+    <div class="irrev-icon">🔒</div>
+    <div>
+      <strong>Irreversibel geschwärzt</strong>
+      <span>Kein PDF-Editor kann die Daten wiederherstellen</span>
+    </div>
+  </div>
+  <div class="irrev-divider"></div>
+  <div class="irrev-item">
+    <div class="irrev-icon">🗑️</div>
+    <div>
+      <strong>Endgültig gelöscht</strong>
+      <span>Information existiert im Dokument nicht mehr</span>
+    </div>
+  </div>
+  <div class="irrev-divider"></div>
+  <div class="irrev-item">
+    <div class="irrev-icon">✅</div>
+    <div>
+      <strong>Sie behalten die Kontrolle</strong>
+      <span>Jede Schwärzung manuell prüf- und anpassbar</span>
+    </div>
+  </div>
+  <div class="irrev-divider"></div>
+  <div class="irrev-item">
+    <div class="irrev-icon">⚖️</div>
+    <div>
+      <strong>Sie behalten die Kontrolle</strong>
+      <span>Rechtsichere Dokumentation aller Schwärzungen</span>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-tag">Was AI Redact kann</div>
+  <h2>Automatisch erkennen.<br>Sicher entfernen.</h2>
+  <p class="section-sub">Laden Sie Ihr Dokument hoch – AI Redact erledigt den Rest. Kein Einrichten, kein Schulungsaufwand, keine versteckten Einstellungen.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feat-icon red">👤</div>
+      <h3>Sie behalten das letzte Wort</h3>
+      <p>AI Redact macht Vorschläge – aber Sie entscheiden, was wirklich geschwärzt wird. Alle erkannten Stellen werden übersichtlich aufgelistet. Einzelne Punkte können Sie bestätigen, überspringen oder selbst ergänzen. Was Sie sehen, ist genau das, was exportiert wird.</p>
+      <div class="feat-chips">
+        <span class="chip">Selektive Auswahl</span>
+        <span class="chip">Manuelle Schwärzung</span>
+        <span class="chip">Echtzeit-Vorschau</span>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feat-icon green">✏️</div>
+      <h3>Nachbessern leicht gemacht</h3>
+      <p>Hat die KI etwas übersehen? Kein Problem. Markieren Sie die Stelle einfach selbst mit der Maus. Falsch erkannte Vorschläge löschen Sie mit einem Klick.</p>
+    </div>
+
+
+
+
+  </div>
+</section>
+
+
+<!-- HOW IT WORKS -->
+<section id="how" style="padding: 0 0 5rem;">
+  <div class="how" style="padding: 5rem;">
+    <div class="section-tag">So einfach geht's</div>
+    <h2>In drei Schritten<br>zum fertigen Dokument.</h2>
+    <p class="section-sub">Einfach hochladen und loslegen.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-icon">📤</div>
+        <h3>Dokument hochladen</h3>
+        <p>Ziehen Sie Ihre Datei einfach ins Fenster – oder klicken Sie auf „Hochladen". Mehrere Dokumente gleichzeitig sind kein Problem.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-icon">🤖</div>
+        <h3>KI findet alles Sensible</h3>
+        <p>Namen, Adressen, Geburtsdaten, Aktenzeichen – AI Redact erkennt automatisch, was geschützt werden muss, und zeigt Ihnen alle Fundstellen übersichtlich an.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-icon">✅</div>
+        <h3>Prüfen &amp; fertig</h3>
+        <p>Schauen Sie die Vorschläge kurz durch, ergänzen Sie bei Bedarf, und laden Sie das geschwärzte Dokument herunter – in Sekunden.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PILOT -->
+<section id="pilot" style="padding: 6rem 5% 0;">
+  <div class="pilot-wrapper">
+    <div class="pilot-left">
+      <div class="section-tag">Jetzt mitmachen</div>
+      <h2>Werden Sie Pilotkunde.</h2>
+      <p style="font-size:.95rem;color:var(--muted);line-height:1.7;margin-bottom:2rem;">
+        AI Redact befindet sich in der Pilotphase – und wir suchen Unternehmen, die gemeinsam mit uns das Produkt weiterentwickeln. Ihr Feedback formt direkt das finale Produkt.
+      </p>
+      <div class="pilot-steps">
+        <div class="pilot-step">
+          <div class="pilot-step-num">1</div>
+          <div>
+            <strong>Kostenlos testen</strong>
+            <span>Sie erhalten AI Redact ohne Kosten und testen es mit Ihren echten Dokumenten.</span>
+          </div>
+        </div>
+        <div class="pilot-step">
+          <div class="pilot-step-num">2</div>
+          <div>
+            <strong>Feedback geben</strong>
+            <span>Ihr Feedback hilft uns, das Produkt gezielt zu verbessern – direkt auf Ihren Arbeitsalltag zugeschnitten.</span>
+          </div>
+        </div>
+        <div class="pilot-step">
+          <div class="pilot-step-num">3</div>
+          <div>
+            <strong>Optional weitermachen</strong>
+            <span>Nach der Testphase besteht die Möglichkeit, in einen bezahlten Tarif zu wechseln.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pilot-right">
+      <div class="pilot-card">
+        <div class="pilot-card-badge">🚀 Pilotprogramm</div>
+        <h3>Was Pilotkunden bekommen</h3>
+        <ul class="pilot-benefits">
+          <li><span class="pb-check">✓</span> Vollständiger Zugang zu AI Redact – kostenlos</li>
+          <li><span class="pb-check">✓</span> Persönlicher Ansprechpartner während der Testphase</li>
+          <li><span class="pb-check">✓</span> Option auf bezahlten Tarif nach der Testphase</li>
+          <li><span class="pb-check">✓</span> Keine Verpflichtung, keine versteckten Kosten</li>
+        </ul>
+        <a href="#demo" class="btn-primary" style="display:block;text-align:center;margin-top:1.8rem;">Jetzt Pilotkunde werden →</a>
+        <p style="font-size:.75rem;color:var(--muted);text-align:center;margin-top:.8rem;">Nur begrenzte Plätze verfügbar</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pilot-wrapper {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 4rem; align-items: center;
+  }
+  .pilot-steps { display: flex; flex-direction: column; gap: 1.2rem; }
+  .pilot-step {
+    display: flex; gap: 1.2rem; align-items: flex-start;
+  }
+  .pilot-step-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800; font-size: .9rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .pilot-step strong {
+    display: block; font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700; font-size: .95rem; margin-bottom: .2rem;
+  }
+  .pilot-step span { font-size: .88rem; color: var(--muted); line-height: 1.6; }
+
+  .pilot-card {
+    background: var(--ink); border-radius: 20px;
+    padding: 2.5rem; color: #fff;
+  }
+  .pilot-card-badge {
+    display: inline-block;
+    background: rgba(26,79,255,0.3); border: 1px solid rgba(26,79,255,0.5);
+    color: #7fa3ff; border-radius: 100px;
+    padding: .3rem 1rem; font-size: .78rem; font-weight: 600;
+    margin-bottom: 1.2rem;
+  }
+  .pilot-card h3 {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;
+    font-size: 1.2rem; color: #fff; margin-bottom: 1.4rem;
+    letter-spacing: -.02em;
+  }
+  .pilot-benefits { list-style: none; display: flex; flex-direction: column; gap: .9rem; }
+  .pilot-benefits li {
+    display: flex; align-items: flex-start; gap: .8rem;
+    font-size: .9rem; color: rgba(255,255,255,0.8); line-height: 1.5;
+  }
+  .pb-check {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(26,79,255,0.3); color: #7fa3ff;
+    font-size: .75rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+
+  @media (max-width: 900px) {
+    .pilot-wrapper { grid-template-columns: 1fr; gap: 2.5rem; }
+    .pilot-card { padding: 1.8rem; }
+  }
+</style>
+
+<!-- TECH -->
+<section id="technik">
+  <div class="section-tag">Warum AI Redact sicher ist</div>
+  <h2>Gebaut für höchste<br>Datenschutzanforderungen.</h2>
+  <p class="section-sub">Egal ob Kanzlei, Behörde oder Unternehmen – AI Redact erfüllt die strengsten Anforderungen an Datenschutz und Dokumentensicherheit.</p>
+
+  <div class="tech-grid">
+    <div class="tech-item">
+      <div class="tech-bullet"></div>
+      <div>
+        <h4>Funktioniert mit verschiedensten Dateitypen</h4>
+        <p>AI Redact verarbeitet die gängigen Formate, die in Ihrem Arbeitsalltag vorkommen.</p>
+      </div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-bullet r"></div>
+      <div>
+        <h4>Daten können nicht wiederhergestellt werden</h4>
+        <p>Die geschwärzten Informationen werden vollständig aus dem Dokument entfernt – nicht nur überdeckt. Kein Programm und keine technische Methode kann sie wiederherstellen.</p>
+      </div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-bullet"></div>
+      <div>
+        <h4>Kein Datenzugriff durch Dritte</h4>
+        <p>Ihre Dokumente werden ausschließlich lokal verarbeitet – kein externer Anbieter, kein Dritter hat Zugriff auf Ihre Inhalte.</p>
+      </div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-bullet r"></div>
+      <div>
+        <h4>Dokumente verlassen das Haus nicht</h4>
+        <p>Auf Wunsch läuft AI Redact vollständig auf Ihrem eigenen Rechner oder Server. Ihre Dateien werden niemals an externe Dienste übertragen.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- UI SCREENSHOT SECTION -->
+<section class="ui-section" id="ui">
+  <div class="ui-section-inner">
+    <div class="ui-text">
+      <div class="section-tag">Sie behalten die Kontrolle</div>
+      <h2>Sie entscheiden.<br>Die KI hilft.</h2>
+      <p>AI Redact zeigt Ihnen alle gefundenen Stellen – aber schwärzt nichts ohne Ihre Zustimmung. Sie sehen sofort, was markiert wurde, können einzelne Punkte entfernen oder selbst neue hinzufügen.</p>
+
+      <div class="hitl-points">
+        <div class="hitl-point">
+          <div class="hitl-point-icon">🎯</div>
+          <div>
+            <h4>Human in the Loop – der Mensch entscheidet</h4>
+            <p>Sie sehen alle Fundstellen übersichtlich aufgelistet und entscheiden für jede einzeln, ob sie geschwärzt wird oder nicht.</p>
+          </div>
+        </div>
+        <div class="hitl-point">
+          <div class="hitl-point-icon orange">✏️</div>
+          <div>
+            <h4>Selbst nachschwärzen per Maus</h4>
+            <p>Hat die KI eine Stelle übersehen? Markieren Sie sie einfach selbst mit der Maus.</p>
+          </div>
+        </div>
+        <div class="hitl-point">
+          <div class="hitl-point-icon">👁️</div>
+          <div>
+            <h4>Vorschau vor dem Export</h4>
+            <p>Sehen Sie das fertige Dokument genau so, wie es exportiert wird – bevor Sie auf „Herunterladen" klicken.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="irrev-highlight">
+        <div class="irrev-highlight-icon">🛡️</div>
+        <div>
+          <h4>Daten können nicht wiederhergestellt werden</h4>
+          <p>Geschwärzte Stellen werden nicht einfach überdeckt, sondern dauerhaft aus dem Dokument entfernt. Kein Programm – auch kein PDF-Editor – kann die Informationen danach noch sichtbar machen.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="ui-screenshot-wrap">
+      <div class="ui-screenshot-frame">
+        <!-- Realistic UI mockup matching the uploaded screenshot -->
+        <div style="display:flex;height:580px;font-family:'Inter',sans-serif;font-size:13px;background:#fff;">
+          <!-- Left: Document panel -->
+          <div style="flex:1;padding:28px 32px;overflow:auto;border-right:1px solid #e8e8e8;background:#fafafa;">
+            <div style="color:#888;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:18px;">— PERSÖNLICHE ANGABEN —</div>
+            <div style="margin-bottom:8px;line-height:1.9;">
+              <span style="color:#444;">Vollständiger Name: </span><span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 5px;font-size:12px;">████</span><span style="color:#222;"> Fischer</span>
+            </div>
+            <div style="margin-bottom:8px;line-height:1.9;">
+              <span style="color:#444;">Geburtsdatum: </span><span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 5px;font-size:12px;">████████████</span>
+            </div>
+            <div style="margin-bottom:8px;line-height:1.9;">
+              <span style="color:#444;">Geburtsort: </span><span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 5px;font-size:12px;">███████</span><span style="color:#222;"> Deutschland</span>
+            </div>
+            <div style="margin-bottom:20px;line-height:1.9;color:#222;">Staatsangehörigkeit: Deutsch</div>
+
+            <div style="color:#888;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;">— KONTAKTDATEN —</div>
+            <div style="margin-bottom:8px;line-height:1.9;">
+              <span style="color:#444;">Anschrift: </span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 5px;font-size:12px;">██████████</span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 3px;margin-left:3px;font-size:12px;">██</span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 5px;margin-left:3px;font-size:12px;">█████</span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 10px;margin-left:3px;font-size:12px;">████████████</span>
+              <span style="color:#222;"> Deutschland</span>
+            </div>
+            <div style="margin-bottom:8px;line-height:1.9;">
+              <span style="color:#444;">Telefonnummer: </span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 8px;font-size:12px;">████████</span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 8px;margin-left:3px;font-size:12px;">████████</span>
+            </div>
+            <div style="margin-bottom:20px;line-height:1.9;">
+              <span style="color:#444;">E-Mail-Adresse: </span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 20px;font-size:12px;">████████████████████████</span>
+            </div>
+
+            <div style="color:#888;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;">— AUSWEISDATEN —</div>
+            <div style="margin-bottom:8px;line-height:1.9;color:#222;">Reisepassnummer: C01X9L3K7</div>
+            <div style="margin-bottom:8px;line-height:1.9;">
+              <span style="color:#444;">Personalausweisnummer: </span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 14px;font-size:12px;">████████████</span>
+            </div>
+            <div style="margin-bottom:20px;line-height:1.9;color:#222;">Führerschein: F-9384756-DE</div>
+
+            <div style="color:#888;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;">— FINANZDATEN —</div>
+            <div style="margin-bottom:6px;line-height:1.9;color:#222;">Bank: Deutsche Bank</div>
+            <div style="margin-bottom:6px;line-height:1.9;color:#222;">IBAN: DE89 3704 0044 0532 0130 00</div>
+            <div style="margin-bottom:6px;line-height:1.9;color:#222;">BIC: COBADEFFXXX</div>
+            <div style="margin-bottom:6px;line-height:1.9;">
+              <span style="color:#444;">Kreditkarte: </span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 6px;font-size:12px;">████</span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 6px;margin-left:2px;font-size:12px;">████</span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 6px;margin-left:2px;font-size:12px;">████</span>
+              <span style="background:#0a0c10;color:#0a0c10;border-radius:2px;padding:1px 6px;margin-left:2px;font-size:12px;">████</span>
+            </div>
+          </div>
+
+          <!-- Right: Sidebar -->
+          <div style="width:220px;background:#fff;display:flex;flex-direction:column;flex-shrink:0;">
+            <div style="padding:16px 16px 10px;border-bottom:1px solid #eee;">
+              <div style="font-weight:700;font-size:13px;color:#0a0c10;">Gefundene Daten</div>
+            </div>
+            <div style="flex:1;overflow:auto;padding:10px 12px;">
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                  <div style="width:14px;height:14px;background:#1a4fff;border-radius:3px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:9px;">✓</span></div>
+                  <span style="font-size:11px;font-weight:600;color:#333;">Städte (3)</span>
+                </div>
+                <div style="padding-left:20px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">München</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">Frankfurt am Main</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                </div>
+              </div>
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                  <div style="width:14px;height:14px;background:#1a4fff;border-radius:3px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:9px;">✓</span></div>
+                  <span style="font-size:11px;font-weight:600;color:#333;">Geburtsdatum (1)</span>
+                </div>
+                <div style="padding-left:20px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">14. März 1987</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                </div>
+              </div>
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                  <div style="width:14px;height:14px;background:#1a4fff;border-radius:3px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:9px;">✓</span></div>
+                  <span style="font-size:11px;font-weight:600;color:#333;">Telefonnummern (4)</span>
+                </div>
+                <div style="padding-left:20px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">+49 151</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">23456789</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">+49 69</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                </div>
+              </div>
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                  <div style="width:14px;height:14px;background:#1a4fff;border-radius:3px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:9px;">✓</span></div>
+                  <span style="font-size:11px;font-weight:600;color:#333;">Straßen (2)</span>
+                </div>
+                <div style="padding-left:20px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">Lindenstraße</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">Mainzer Landstraße</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                </div>
+              </div>
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                  <div style="width:14px;height:14px;background:#1a4fff;border-radius:3px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:9px;">✓</span></div>
+                  <span style="font-size:11px;font-weight:600;color:#333;">Benutzernamen (5)</span>
+                </div>
+                <div style="padding-left:20px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">fischer87</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;"><div style="display:flex;align-items:center;gap:5px;"><div style="width:12px;height:12px;background:#1a4fff;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="color:#fff;font-size:8px;">✓</span></div><span style="font-size:11px;color:#444;">daniel</span></div><span style="color:#ff3c2e;font-size:13px;cursor:pointer;">⊗</span></div>
+                </div>
+              </div>
+            </div>
+            <div style="padding:12px;border-top:1px solid #eee;display:flex;flex-direction:column;gap:6px;">
+              <button style="background:#1a4fff;color:#fff;border:none;border-radius:7px;padding:9px;font-weight:600;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;">Dokument schwärzen</button>
+              <button style="background:#555;color:#fff;border:none;border-radius:7px;padding:9px;font-weight:500;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;">Zurück</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ui-caption">Benutzeroberfläche · <span>21 Datenpunkte erkannt</span> · Alle manuell prüfbar</div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO FORM -->
+<section id="demo" style="padding: 0 0 5rem;">
+  <div class="demo-section">
+    <div class="demo-left">
+      <div class="section-tag">Kostenlose Demo & Pilotprogramm</div>
+      <h2>Testen Sie AI Redact –<br>kostenlos & unverbindlich.</h2>
+      <p class="section-sub">Fordern Sie eine Demo an oder bewerben Sie sich direkt als Pilotkunde. Wir melden uns und führen Sie persönlich durch das Tool.</p>
+      <ul class="demo-benefits">
+        <li>Persönliche Vorführung mit einem unserer Experten</li>
+        <li>Test mit Ihren eigenen Dokumenten</li>
+      </ul>
+    </div>
+
+    <div class="demo-form" id="demoFormContainer">
+      <h3>Demo anfragen</h3>
+      <script src="https://js-eu1.hsforms.net/forms/embed/148861210.js" defer></script>
+      <div class="hs-form-frame" data-region="eu1" data-form-id="f73b5bd4-d125-45b2-a3f3-f1887ae3cbfc" data-portal-id="148861210"></div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" style="padding: 6rem 5%;">
+  <div style="max-width: 760px; margin: 0 auto;">
+    <div class="section-tag">Häufig gestellte Fragen</div>
+    <h2 style="margin-bottom: .6rem;">Häufig gestellte Fragen.</h2>
+    <p class="section-sub" style="margin-bottom: 3rem;">Haben Sie eine Frage, die hier nicht beantwortet wird? Schreiben Sie uns einfach – wir helfen gerne.</p>
+
+    <div id="faq-list"></div>
+  </div>
+</section>
+
+<style>
+  .faq-item {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: .8rem;
+    overflow: hidden;
+    background: var(--card-bg);
+    transition: box-shadow .2s;
+  }
+  .faq-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .faq-question {
+    width: 100%; background: none; border: none;
+    padding: 1.4rem 1.6rem;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; text-align: left; gap: 1rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1rem; font-weight: 600; color: var(--ink);
+  }
+  .faq-question:hover { background: rgba(10,12,16,0.02); }
+  .faq-icon {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(26,79,255,0.1); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+    transition: transform .3s, background .2s;
+    font-style: normal;
+  }
+  .faq-item.open .faq-icon {
+    transform: rotate(45deg);
+    background: var(--accent); color: #fff;
+  }
+  .faq-answer {
+    max-height: 0; overflow: hidden;
+    transition: max-height .35s ease, padding .25s ease;
+    padding: 0 1.6rem;
+  }
+  .faq-item.open .faq-answer {
+    max-height: 300px;
+    padding: 0 1.6rem 1.4rem;
+  }
+  .faq-answer p {
+    font-size: .95rem; color: var(--muted); line-height: 1.75;
+    border-top: 1px solid var(--border); padding-top: 1rem;
+  }
+</style>
+
+<script>
+const faqs = [
+  {
+    q: "Muss ich etwas installieren oder einrichten?",
+    a: "Nein. AI Redact läuft direkt im Browser – kein Download, keine Installation, keine IT-Abteilung nötig. Einfach Dokument hochladen und loslegen."
+  },
+  {
+    q: "Sind meine Dokumente bei der Verarbeitung sicher?",
+    a: "Ja. AI Redact läuft vollständig lokal – Ihre Daten verlassen zu keinem Zeitpunkt Ihr Haus. Es gibt drei Betriebsmodelle: Installation auf Ihrem eigenen Gerät oder Server, Betrieb auf unserem vorkonfigurierten Nanocomputer, oder wir hosten die Lösung für Sie. In allen Fällen hat kein externer Anbieter Zugriff auf Ihre Dokumente."
+  },
+  {
+    q: "Was passiert, wenn die KI eine Stelle übersieht?",
+    a: "Das können Sie jederzeit selbst korrigieren. Markieren Sie die übersehene Stelle einfach mit der Maus und fügen Sie sie zur Schwärzung hinzu."
+  },
+  {
+    q: "Kann man eine Schwärzung rückgängig machen?",
+    a: "Nein – und das ist gewollt. Geschwärzte Informationen werden dauerhaft aus dem Dokument entfernt, nicht nur überdeckt. Kein PDF-Editor und keine Software kann sie danach noch sichtbar machen. Deshalb sehen Sie immer eine Vorschau, bevor Sie exportieren."
+  },
+  {
+    q: "Unterstützt AI Redact datenschutzkonforme Verarbeitung?",
+    a: "AI Redact wurde mit Blick auf Datenschutz entwickelt. Da die Verarbeitung vollständig lokal auf Ihrem Gerät oder Server stattfindet, verlassen Ihre Dokumente zu keinem Zeitpunkt Ihr Haus. Ob das Tool Ihre spezifischen rechtlichen Anforderungen erfüllt, empfehlen wir mit Ihrem Datenschutzbeauftragten zu klären."
+  },
+  {
+    q: "Was kostet AI Redact?",
+    a: "Der Einstieg erfolgt im Rahmen unseres Pilotprogramms – kostenlos. Nach der Pilotphase richten sich die Konditionen nach Ihren individuellen Anforderungen. Sprechen Sie uns gerne an."
+  }
+];
+
+const list = document.getElementById('faq-list');
+faqs.forEach((faq, i) => {
+  const item = document.createElement('div');
+  item.className = 'faq-item';
+  item.innerHTML = `
+    <button class="faq-question" onclick="toggleFaq(${i})">
+      <span>${faq.q}</span>
+      <em class="faq-icon">+</em>
+    </button>
+    <div class="faq-answer"><p>${faq.a}</p></div>
+  `;
+  list.appendChild(item);
+});
+
+function toggleFaq(index) {
+  const items = document.querySelectorAll('.faq-item');
+  items.forEach((item, i) => {
+    if (i === index) {
+      item.classList.toggle('open');
+    } else {
+      item.classList.remove('open');
+    }
+  });
+}
+</script>
+
+
+<!-- MOBILE STICKY CTA -->
+<div class="mobile-sticky-cta">
+  <a href="#demo">Kostenlose Demo anfragen →</a>
+</div>
+
+<footer>
+  <div class="footer-logo">AI Redact</div>
+  <p>© 2025 AI Redact. Alle Rechte vorbehalten. · <a href="#" onclick="toggleDatenschutz(event)" style="color:var(--muted);">Datenschutz</a> · <a href="#" onclick="toggleImpressum(event)" style="color:var(--muted);" id="impressumLink">Impressum</a></p>
+</footer>
+
+<div id="datenschutzModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(10,12,16,0.6); backdrop-filter:blur(4px); overflow-y:auto;">
+  <div style="background:#fff; max-width:680px; margin:5rem auto; border-radius:16px; padding:2.5rem; position:relative;">
+    <button onclick="document.getElementById('datenschutzModal').style.display='none'" style="position:absolute;top:1.2rem;right:1.2rem;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);">✕</button>
+    <h2 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;margin-bottom:1.5rem;letter-spacing:-.02em;">Datenschutzerklärung</h2>
+    <div style="font-size:.88rem;line-height:1.8;color:#444;">
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">1. Verantwortlicher</h3>
+      <p>Verantwortlicher im Sinne der DSGVO ist:<br><br>
+      basecom GmbH &amp; Co. KG<br>Große Straße 17–19<br>49074 Osnabrück<br>
+      E-Mail: <a href="mailto:info@basecom.de" style="color:var(--accent);">info@basecom.de</a><br>
+      Telefon: 0541 580 287 0</p>
+
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">2. Erhebung personenbezogener Daten</h3>
+      <p>Wir erheben personenbezogene Daten nur, wenn Sie uns diese freiwillig mitteilen – etwa beim Ausfüllen des Demo-Anfrageformulars. Dabei werden folgende Daten erhoben:</p>
+      <ul style="margin:.6rem 0 .6rem 1.2rem;">
+        <li>Vollständiger Name</li>
+        <li>E-Mail-Adresse</li>
+        <li>Telefonnummer</li>
+        <li>Unternehmen</li>
+      </ul>
+      <p>Diese Daten verwenden wir ausschließlich zur Bearbeitung Ihrer Anfrage und zur Kontaktaufnahme mit Ihnen.</p>
+
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">3. Weitergabe von Daten</h3>
+      <p>Ihre personenbezogenen Daten werden nicht an Dritte weitergegeben, verkauft oder vermietet. Eine Übermittlung erfolgt nur, wenn wir gesetzlich dazu verpflichtet sind.</p>
+
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">4. Verarbeitung von Dokumenten</h3>
+      <p>Dokumente, die im Rahmen der Nutzung von AI Redact verarbeitet werden, werden ausschließlich lokal auf Ihrem Gerät oder dem bereitgestellten System verarbeitet. Es findet keine Übertragung Ihrer Dokumente an externe Server oder Dritte statt.</p>
+
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">5. Speicherdauer</h3>
+      <p>Ihre Kontaktdaten werden nur so lange gespeichert, wie es für die Bearbeitung Ihrer Anfrage erforderlich ist, oder bis Sie der Speicherung widersprechen.</p>
+
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">6. Ihre Rechte</h3>
+      <p>Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung Ihrer Daten sowie das Recht auf Datenübertragbarkeit und Widerspruch. Zur Ausübung Ihrer Rechte wenden Sie sich bitte an: <a href="mailto:info@basecom.de" style="color:var(--accent);">info@basecom.de</a></p>
+
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">7. Beschwerderecht</h3>
+      <p>Sie haben das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren. Die zuständige Behörde ist die Landesbeauftragte für den Datenschutz Niedersachsen (LfD Niedersachsen).</p>
+
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">8. Cookies</h3>
+      <p>Diese Website verwendet keine Cookies und keine Tracking-Technologien.</p>
+
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">9. Aktualität</h3>
+      <p>Diese Datenschutzerklärung hat den Stand Juni 2025.</p>
+    </div>
+  </div>
+</div>
+
+<div id="impressumModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(10,12,16,0.6); backdrop-filter:blur(4px); overflow-y:auto;">
+  <div style="background:#fff; max-width:640px; margin:5rem auto; border-radius:16px; padding:2.5rem; position:relative;">
+    <button onclick="document.getElementById('impressumModal').style.display='none'" style="position:absolute;top:1.2rem;right:1.2rem;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);">✕</button>
+    <h2 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;margin-bottom:1.5rem;letter-spacing:-.02em;">Impressum</h2>
+    <p style="font-size:.9rem;line-height:1.8;color:#444;">
+      <strong>basecom GmbH &amp; Co. KG</strong><br>
+      Große Straße 17–19<br>
+      49074 Osnabrück<br><br>
+      Telefon: 0541 580 287 0<br>
+      Fax: 0541 580 287 99<br>
+      E-Mail: <a href="mailto:info@basecom.de" style="color:var(--accent);">info@basecom.de</a><br><br>
+      Registergericht: Amtsgericht Osnabrück<br>
+      Registernummer: HRA 200550<br><br>
+      Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz:<br>
+      DE254432299<br><br>
+      <strong>Persönlich haftende Gesellschaft:</strong><br>
+      basecom Beteiligungsgesellschaft mbH<br>
+      Große Straße 17–19<br>
+      49074 Osnabrück<br><br>
+      Vertreten durch den Geschäftsführer: Manuel Wortmann<br>
+      Registergericht: Amtsgericht Osnabrück, HRB 200235<br><br>
+      <strong>Inhaltlich Verantwortlicher gemäß § 18 Abs. 2 MStV:</strong><br>
+      Manuel Wortmann
+    </p>
+  </div>
+</div>
+
+<script>
+function toggleDatenschutz(e) {
+  e.preventDefault();
+  document.getElementById('datenschutzModal').style.display = 'flex';
+}
+document.getElementById('datenschutzModal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+
+function toggleImpressum(e) {
+  e.preventDefault();
+  document.getElementById('impressumModal').style.display = 'flex';
+}
+document.getElementById('impressumModal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+</script>
+
+<script>function toggleMenu() {
+  const nav = document.getElementById('mobileNav');
+  const btn = document.getElementById('hamburger');
+  nav.classList.toggle('open');
+  btn.classList.toggle('open');
+}
+function closeMenu() {
+  document.getElementById('mobileNav').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+}
+
+
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      const top = target.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  });
+});
+
+// Animate on scroll
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.feature-card, .tech-item, .step').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(20px)';
+  el.style.transition = 'opacity .5s ease, transform .5s ease';
+  observer.observe(el);
+});
+</script>
+<!-- SCROLL TO TOP -->
+<button id="scrollTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Nach oben">
+  ↑
+</button>
+
+<style>
+  #scrollTop {
+    position: fixed; bottom: 2rem; right: 2rem; z-index: 200;
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--ink); color: var(--paper);
+    border: none; cursor: pointer;
+    font-size: 1.2rem; font-weight: 700;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    opacity: 0; pointer-events: none;
+    transition: opacity .4s ease, transform .2s ease;
+  }
+  #scrollTop.visible { opacity: 1; pointer-events: all; }
+  #scrollTop:hover { transform: translateY(-3px); }
+</style>
+
+<script>
+  const parallaxBg = document.getElementById('parallaxBg');
+  const heroSection = document.getElementById('heroSection');
+
+  window.addEventListener('scroll', () => {
+    // Scroll-to-top button
+    document.getElementById('scrollTop').classList.toggle('visible', window.scrollY > 300);
+
+    // Parallax
+    if (parallaxBg && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const heroHeight = heroSection ? heroSection.offsetHeight : 800;
+      if (window.scrollY < heroHeight * 1.2) {
+        parallaxBg.style.transform = `translateY(${window.scrollY * 0.45}px)`;
+      }
+    }
+  }, { passive: true });
+</script>
+
+
+</html>
