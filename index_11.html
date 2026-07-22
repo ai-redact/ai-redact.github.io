@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Redact – Intelligente Dokumentenschwärzung</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://js-eu1.hsforms.net/forms/embed/148861210.js" defer></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -43,7 +42,16 @@
     font-weight: 800; font-size: 1.35rem; letter-spacing: -0.03em;
     color: var(--ink);
   }
-  .logo span { display: none; }
+  .logo span {
+    display: inline-block; background: var(--redact);
+    color: transparent; border-radius: 3px; padding: 0 6px;
+    position: relative; top: 1px;
+    user-select: none;
+  }
+  .logo span::after {
+    content: 'AI'; color: var(--paper);
+    position: absolute; left: 6px;
+  }
   nav ul { list-style: none; display: flex; gap: 2.2rem; }
   nav ul li a {
     font-size: 0.88rem; font-weight: 500; color: var(--muted);
@@ -1207,10 +1215,9 @@
 
     <div class="demo-form" id="demoFormContainer">
       <h3>Demo anfragen</h3>
-      <div class="hs-form-frame" data-region="eu1" data-form-id="f73b5bd4-d125-45b2-a3f3-f1887ae3cbfc" data-portal-id="148861210"></div>
-    </div>
-  </div>
-</section>
+      <!-- HUBSPOT FORMULAR HIER EINFÜGEN -->
+    <script src="https://js-eu1.hsforms.net/forms/embed/148861210.js" defer></script>
+<div class="hs-form-frame" data-region="eu1" data-form-id="f73b5bd4-d125-45b2-a3f3-f1887ae3cbfc" data-portal-id="148861210"></div>
 
 <!-- FAQ -->
 <section id="faq" style="padding: 6rem 5%;">
@@ -1334,18 +1341,18 @@ function toggleFaq(index) {
   <p>© 2025 AI Redact. Alle Rechte vorbehalten. · <a href="#" onclick="toggleDatenschutz(event)" style="color:var(--muted);">Datenschutz</a> · <a href="#" onclick="toggleImpressum(event)" style="color:var(--muted);" id="impressumLink">Impressum</a></p>
 </footer>
 
-<div id="datenschutzModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(10,12,16,0.6); backdrop-filter:blur(4px); padding: 3rem 1rem; overflow-y:auto;">
-  <div style="background:#fff; max-width:680px; margin:0 auto; border-radius:16px; padding:2.5rem; position:relative;">
+<div id="datenschutzModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(10,12,16,0.6); backdrop-filter:blur(4px); overflow-y:auto;">
+  <div style="background:#fff; max-width:680px; margin:5rem auto; border-radius:16px; padding:2.5rem; position:relative;">
     <button onclick="document.getElementById('datenschutzModal').style.display='none'" style="position:absolute;top:1.2rem;right:1.2rem;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);">✕</button>
     <h2 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;margin-bottom:1.5rem;letter-spacing:-.02em;">Datenschutzerklärung</h2>
-    <div style="font-size:.78rem;line-height:1.7;color:#444;">
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">1. Verantwortlicher</h3>
+    <div style="font-size:.88rem;line-height:1.8;color:#444;">
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">1. Verantwortlicher</h3>
       <p>Verantwortlicher im Sinne der DSGVO ist:<br><br>
       basecom GmbH &amp; Co. KG<br>Große Straße 17–19<br>49074 Osnabrück<br>
       E-Mail: <a href="mailto:info@basecom.de" style="color:var(--accent);">info@basecom.de</a><br>
       Telefon: 0541 580 287 0</p>
 
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">2. Erhebung personenbezogener Daten</h3>
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">2. Erhebung personenbezogener Daten</h3>
       <p>Wir erheben personenbezogene Daten nur, wenn Sie uns diese freiwillig mitteilen – etwa beim Ausfüllen des Demo-Anfrageformulars. Dabei werden folgende Daten erhoben:</p>
       <ul style="margin:.6rem 0 .6rem 1.2rem;">
         <li>Vollständiger Name</li>
@@ -1355,32 +1362,32 @@ function toggleFaq(index) {
       </ul>
       <p>Diese Daten verwenden wir ausschließlich zur Bearbeitung Ihrer Anfrage und zur Kontaktaufnahme mit Ihnen.</p>
 
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">3. Weitergabe von Daten</h3>
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">3. Weitergabe von Daten</h3>
       <p>Ihre personenbezogenen Daten werden nicht an Dritte weitergegeben, verkauft oder vermietet. Eine Übermittlung erfolgt nur, wenn wir gesetzlich dazu verpflichtet sind.</p>
 
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">4. Verarbeitung von Dokumenten</h3>
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">4. Verarbeitung von Dokumenten</h3>
       <p>Dokumente, die im Rahmen der Nutzung von AI Redact verarbeitet werden, werden ausschließlich lokal auf Ihrem Gerät oder dem bereitgestellten System verarbeitet. Es findet keine Übertragung Ihrer Dokumente an externe Server oder Dritte statt.</p>
 
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">5. Speicherdauer</h3>
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">5. Speicherdauer</h3>
       <p>Ihre Kontaktdaten werden nur so lange gespeichert, wie es für die Bearbeitung Ihrer Anfrage erforderlich ist, oder bis Sie der Speicherung widersprechen.</p>
 
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">6. Ihre Rechte</h3>
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">6. Ihre Rechte</h3>
       <p>Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung Ihrer Daten sowie das Recht auf Datenübertragbarkeit und Widerspruch. Zur Ausübung Ihrer Rechte wenden Sie sich bitte an: <a href="mailto:info@basecom.de" style="color:var(--accent);">info@basecom.de</a></p>
 
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">7. Beschwerderecht</h3>
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">7. Beschwerderecht</h3>
       <p>Sie haben das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren. Die zuständige Behörde ist die Landesbeauftragte für den Datenschutz Niedersachsen (LfD Niedersachsen).</p>
 
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">8. Cookies</h3>
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">8. Cookies</h3>
       <p>Diese Website verwendet keine Cookies und keine Tracking-Technologien.</p>
 
-      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.85rem;margin:.9rem 0 .3rem;">9. Aktualität</h3>
+      <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;margin:1.4rem 0 .4rem;">9. Aktualität</h3>
       <p>Diese Datenschutzerklärung hat den Stand Juni 2025.</p>
     </div>
   </div>
 </div>
 
-<div id="impressumModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(10,12,16,0.6); backdrop-filter:blur(4px); padding: 3rem 1rem; overflow-y:auto;">
-  <div style="background:#fff; max-width:640px; margin:0 auto; border-radius:16px; padding:2.5rem; position:relative;">
+<div id="impressumModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(10,12,16,0.6); backdrop-filter:blur(4px); overflow-y:auto;">
+  <div style="background:#fff; max-width:640px; margin:5rem auto; border-radius:16px; padding:2.5rem; position:relative;">
     <button onclick="document.getElementById('impressumModal').style.display='none'" style="position:absolute;top:1.2rem;right:1.2rem;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);">✕</button>
     <h2 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;margin-bottom:1.5rem;letter-spacing:-.02em;">Impressum</h2>
     <p style="font-size:.9rem;line-height:1.8;color:#444;">
